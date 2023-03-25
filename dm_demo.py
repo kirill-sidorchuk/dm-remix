@@ -10,7 +10,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+sd_dtype = torch.float32 if device == "cpu" else torch.float16
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
