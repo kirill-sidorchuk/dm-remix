@@ -15,7 +15,7 @@ pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = "a photo of an astronaut riding a horse on the moon during a comet shower"
+prompt = "a photo of an astronaut riding a horse on the moon during a comet storm"
 image = pipe(prompt).images[0]
 
 image.save("astronaut_rides_horse.png")
