@@ -31,7 +31,7 @@ print(f"Using device: {device}")
 
 # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
 sd_dtype = torch.bfloat16 if device == "cpu" else torch.float16
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype, height=HEIGHT, width=WIDTH)
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
@@ -46,7 +46,8 @@ image = image.resize((512, 768))
 # image=[image] * len(prompt), strength=0.9
 images = pipe(prompt=prompt,
               negative_prompt=['ugly, boring, bad anatomy'] * len(prompt),
-              num_inference_steps=100).images
+              num_inference_steps=100,
+              height=HEIGHT, width=WIDTH).images
 grid = image_grid(images, rows=1, cols=2)
 
 grid.save("remix.png")
