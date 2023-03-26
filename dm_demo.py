@@ -5,6 +5,9 @@ import torch
 from PIL import Image
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline
 
+WIDTH = 512
+HEIGHT = 768
+
 
 def image_grid(imgs, rows=2, cols=2):
     """Create a grid of images.
@@ -28,7 +31,7 @@ print(f"Using device: {device}")
 
 # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
 sd_dtype = torch.bfloat16 if device == "cpu" else torch.float16
-pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype, height=HEIGHT, width=WIDTH)
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
@@ -40,7 +43,8 @@ image = Image.open("the_cat.png")
 # resize image to 768x512
 image = image.resize((512, 768))
 
-images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.9,
+# image=[image] * len(prompt), strength=0.9
+images = pipe(prompt=prompt,
               negative_prompt=['ugly, boring, bad anatomy'] * len(prompt),
               num_inference_steps=100).images
 grid = image_grid(images, rows=1, cols=2)
