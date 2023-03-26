@@ -45,7 +45,7 @@ image = image.resize((WIDTH, HEIGHT))
 
 # image=[image] * len(prompt), strength=0.9
 images = pipe(prompt=prompt,
-              negative_prompt=['ugly, boring, bad anatomy'] * len(prompt),
+              negative_prompt=['ugly, boring'] * len(prompt),
               num_inference_steps=50,
               height=HEIGHT, width=WIDTH).images
 grid = image_grid(images, rows=1, cols=2)
