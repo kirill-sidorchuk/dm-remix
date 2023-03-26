@@ -3,7 +3,8 @@
 """
 import torch
 from PIL import Image
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, \
+    StableUnCLIPImg2ImgPipeline
 
 WIDTH = 512
 HEIGHT = 512
@@ -24,14 +25,20 @@ def image_grid(imgs, rows=2, cols=2):
     return grid
 
 
-model_id = "stabilityai/stable-diffusion-2-1"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
 sd_dtype = torch.bfloat16 if device == "cpu" else torch.float16
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
+
+
+# model_id = "stabilityai/stable-diffusion-2-1"
+# pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
+
+pipe = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
+                                                   torch_dtype=sd_dtype)
+
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
@@ -45,6 +52,7 @@ image = image.resize((WIDTH, HEIGHT))
 
 # image=[image] * len(prompt), strength=0.9
 images = pipe(prompt=prompt,
+              image=[image] * len(prompt), strength=0.9,
               negative_prompt=['ugly, boring'] * len(prompt),
               num_inference_steps=50,
               height=HEIGHT, width=WIDTH).images
