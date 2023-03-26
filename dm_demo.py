@@ -52,7 +52,7 @@ image = image.resize((WIDTH, HEIGHT))
 
 # image=[image] * len(prompt), strength=0.9
 images = pipe(prompt=prompt,
-              image=[image] * len(prompt), strength=0.9,
+              image=[image] * len(prompt),
               negative_prompt=['ugly, boring'] * len(prompt),
               num_inference_steps=50,
               height=HEIGHT, width=WIDTH).images
