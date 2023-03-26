@@ -40,7 +40,7 @@ image = Image.open("the_cat.png")
 # resize image to 768x512
 image = image.resize((512, 768))
 
-images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.7,
+images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.9,
               negative_prompt=['ugly, boring, bad anatomy'] * len(prompt),
               num_inference_steps=100).images
 grid = image_grid(images, rows=1, cols=2)
