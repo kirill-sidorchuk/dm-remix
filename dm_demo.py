@@ -40,7 +40,7 @@ image = Image.open("the_cat.png")
 # resize image to 512x512
 image = image.resize((512, 512))
 
-images = pipe(prompt=prompt, image=image, strength=0.2).images
+images = pipe(prompt=prompt, image=image, strength=0.4).images
 grid = image_grid(images, rows=2, cols=2)
 
 grid.save("remix.png")
