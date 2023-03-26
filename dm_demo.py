@@ -40,7 +40,8 @@ image = Image.open("the_cat.png")
 # resize image to 768x512
 image = image.resize((512, 768))
 
-images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.7).images
+images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.7,
+              negative_prompt='ugly, boring, bad anatomy').images
 grid = image_grid(images, rows=1, cols=2)
 
 grid.save("remix.png")
