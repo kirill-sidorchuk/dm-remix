@@ -38,7 +38,7 @@ prompt = ["a photo of a cat that looks exactly like a loaf bread"] * 2
 image = Image.open("the_cat.png")
 
 # resize image to 768x512
-image = image.resize((768, 512))
+image = image.resize((512, 768))
 
 images = pipe(prompt=prompt, image=[image] * len(prompt), strength=0.6).images
 grid = image_grid(images, rows=1, cols=2)
