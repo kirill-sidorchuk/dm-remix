@@ -6,7 +6,7 @@ from PIL import Image
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline
 
 WIDTH = 512
-HEIGHT = 768
+HEIGHT = 512
 
 
 def image_grid(imgs, rows=2, cols=2):
@@ -41,7 +41,7 @@ prompt = ["a photo of a creature that is a mix of a cat and a loaf of bread"] * 
 image = Image.open("the_cat.png")
 
 # resize image to 768x512
-image = image.resize((512, 768))
+image = image.resize((WIDTH, HEIGHT))
 
 # image=[image] * len(prompt), strength=0.9
 images = pipe(prompt=prompt,
