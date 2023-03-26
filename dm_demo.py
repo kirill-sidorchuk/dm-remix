@@ -32,7 +32,7 @@ pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=sd_d
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = [""] * 4
+prompt = ["a photo of bread looking like the cat"] * 4
 
 # loading image with PIL
 image = Image.open("the_cat.png")
