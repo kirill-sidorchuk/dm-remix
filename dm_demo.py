@@ -32,7 +32,7 @@ pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=sd_d
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = ["a photo of bread looking like the cat"] * 4
+prompt = ["a photo of a cat that looks exactly like a bread"] * 4
 
 # loading image with PIL
 image = Image.open("the_cat.png")
@@ -40,7 +40,7 @@ image = Image.open("the_cat.png")
 # resize image to 512x512
 image = image.resize((512, 512))
 
-images = pipe(prompt=prompt, image=image, strength=0.1).images
+images = pipe(prompt=prompt, image=image, strength=0.2).images
 grid = image_grid(images, rows=2, cols=2)
 
 grid.save("remix.png")
