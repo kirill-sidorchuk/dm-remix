@@ -62,7 +62,12 @@ def main(args):
             print("Generating video requires exactly 2 images")
             return
 
+        # creating and cleaning video directory
         os.makedirs("video_dir", exist_ok=True)
+        files = os.listdir("video_dir")
+        for f in files:
+            os.remove(os.path.join("video_dir", f))
+
         all_image_weights = []
         for i in range(args.num_frames):
             w0 = i / (args.num_frames - 1)
