@@ -69,7 +69,7 @@ def main(args):
             os.remove(os.path.join("video_dir", f))
 
         all_image_weights = []
-        scale_offset = args.interpolation_scale / 2
+        scale_offset = (1 - args.interpolation_scale) / 2
         for i in range(args.num_frames):
             w0 = args.interpolation_scale * i / (args.num_frames - 1) + scale_offset
             w1 = 1 - w0
