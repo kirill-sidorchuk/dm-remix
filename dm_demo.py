@@ -42,7 +42,7 @@ pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = ["a photo of a creature that is a mix of a cat and a loaf of bread"] * 2
+prompt = ["a photo of a creature"] * 4
 
 # loading image with PIL
 image1 = Image.open("the_cat.png")
