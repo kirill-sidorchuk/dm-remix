@@ -33,7 +33,6 @@ def image_grid(imgs, rows=2, cols=2):
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
-# Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
 if device == "cpu":
     sd_dtype = torch.bfloat16
     variation_dtype = "fp32"
@@ -48,7 +47,8 @@ pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
                                      torch_dtype=sd_dtype,
                                      variation=variation_dtype)
 
-pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+# Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
+# pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
 if len(sys.argv) > 1:
