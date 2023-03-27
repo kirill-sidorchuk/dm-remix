@@ -61,6 +61,12 @@ if len(sys.argv) > 2:
     num_images_in_batch = int(sys.argv[2])
 print('num_images_in_batch: ', num_images_in_batch)
 
+if len(sys.argv) > 3:
+    image_weights = [float(x) for x in sys.argv[3: 3 + num_images_in_batch]]
+else:
+    image_weights = [1] * num_images_in_batch
+print('image_weights: ', image_weights)
+
 prompt = [prompt] * num_images_in_batch
 
 # loading image with PIL
@@ -78,6 +84,7 @@ generator = torch.Generator().manual_seed(41)
 with torch.inference_mode():
     images = pipe(prompt=prompt,
                   images=[image1, image2],
+                  image_weights=image_weights,
                   negative_prompt=['ugly, boring, cropped, out of frame, jpeg artifacts'] * len(prompt),
                   num_inference_steps=50,
                   height=HEIGHT, width=WIDTH,

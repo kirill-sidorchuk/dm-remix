@@ -188,18 +188,17 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             all_image_embeds.append(image_embeds.unsqueeze(0))
 
         # averaging over all image embeds
-        image_embeds = torch.cat(all_image_embeds, dim=0)
+        image_embeds = torch.cat(all_image_embeds, dim=0)  # [N, B, D]
         if image_weights is None:
-            image_weights = torch.ones((len(all_image_embeds), 1, 1), device=image_embeds.device)
+            image_embeds = image_embeds.mean(dim=0)  # average over all images, [B, D]
         else:
-            if isinstance(image_weights, list):
-                image_weights = torch.tensor(image_weights, device=image_embeds.device).view(-1, 1, 1)
-            elif isinstance(image_weights, torch.Tensor):
-                if image_weights.shape != (len(images),):
-                    raise RuntimeError('`image_weights` must be a list of length `len(images)`.')
-                image_weights = image_weights.view(-1, 1, 1)
-                image_weights = image_weights.to(device=image_embeds.device)
-        image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
+            if len(image_weights) != len(all_image_embeds):
+                raise ValueError(f"image_weights and all_image_embeds must have the same length, got {len(image_weights)} and {len(all_image_embeds)}")
+
+            image_weights = torch.tensor(image_weights,
+                                         dtype=all_image_embeds[0].dtype,
+                                         device=all_image_embeds[0].device).view(-1, 1, 1)  # [N, 1, 1]
+            image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
 
         del all_image_embeds
         torch.cuda.empty_cache()
@@ -260,5 +259,3 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             return (image,)
 
         return ImagePipelineOutput(images=image)
-
-
