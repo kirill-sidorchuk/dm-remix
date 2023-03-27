@@ -34,13 +34,19 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
-sd_dtype = torch.bfloat16 if device == "cpu" else torch.float16
+if device == "cpu":
+    sd_dtype = torch.bfloat16
+    variation_dtype = "fp32"
+else:
+    sd_dtype = torch.float16
+    variation_dtype = "fp16"
 
 # model_id = "stabilityai/stable-diffusion-2-1"
 # pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
 
 pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
-                                     torch_dtype=sd_dtype)
+                                     torch_dtype=sd_dtype,
+                                     variation=variation_dtype)
 
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
