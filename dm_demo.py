@@ -1,6 +1,8 @@
 """
     Script to demonstrate the use of stable diffusion model.
 """
+import sys
+
 import torch
 from PIL import Image
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, \
@@ -43,7 +45,12 @@ pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = ["a photo of a creature"] * num_images_in_batch
+if len(sys.argv) > 1:
+    prompt = sys.argv[1]
+else:
+    prompt = "a photo of a creature"
+
+prompt = [prompt] * num_images_in_batch
 
 # loading image with PIL
 image1 = Image.open("the_cat.png")
