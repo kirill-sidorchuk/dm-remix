@@ -17,7 +17,6 @@ from remix_pipe import RemixPipeline
 
 WIDTH = 512
 HEIGHT = 512
-num_images_in_batch = 2
 
 
 def image_grid(imgs, rows=2, cols=2):
@@ -46,7 +45,7 @@ def main(args):
         sd_dtype = torch.float16
         variation_dtype = "fp16"
 
-    prompt = [args.prompt] * args.num_images_in_batch
+    prompt = [args.prompt]
 
     # loading image with PIL
     images = []
@@ -103,9 +102,10 @@ def main(args):
 
             gen_images = pipe(
                 prompt=prompt,
+                num_images_per_prompt=args.num_images_in_batch,
                 images=images,
                 image_weights=image_weights,
-                negative_prompt=[args.negative_prompt] * len(prompt),
+                negative_prompt=[args.negative_prompt],
                 num_inference_steps=args.num_inference_steps,
                 height=HEIGHT, width=WIDTH,
                 generator=generator,
