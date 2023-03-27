@@ -8,8 +8,9 @@ from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, Stab
 
 from remix_pipe import RemixPipeline
 
-WIDTH = 384
-HEIGHT = 512
+WIDTH = 512
+HEIGHT = 768
+num_images_in_batch = 1
 
 
 def image_grid(imgs, rows=2, cols=2):
@@ -42,7 +43,7 @@ pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe = pipe.to(device)
 
-prompt = ["a photo of a creature"] * 4
+prompt = ["a photo of a creature"] * num_images_in_batch
 
 # loading image with PIL
 image1 = Image.open("the_cat.png")
