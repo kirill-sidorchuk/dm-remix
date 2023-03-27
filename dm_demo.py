@@ -55,6 +55,11 @@ if len(sys.argv) > 1:
     prompt = sys.argv[1]
 else:
     prompt = "a photo of a creature"
+print('prompt: ', prompt)
+
+if len(sys.argv) > 2:
+    num_images_in_batch = int(sys.argv[2])
+print('num_images_in_batch: ', num_images_in_batch)
 
 prompt = [prompt] * num_images_in_batch
 
@@ -66,13 +71,17 @@ image2 = Image.open("the_bread.png")
 image1 = image1.resize((WIDTH, HEIGHT))
 image2 = image2.resize((WIDTH, HEIGHT))
 
+# create torch random generator
+generator = torch.Generator().manual_seed(41)
+
 # image=[image] * len(prompt), strength=0.9
 with torch.inference_mode():
     images = pipe(prompt=prompt,
                   images=[image1, image2],
-                  negative_prompt=['ugly, boring, cropped, out of frame'] * len(prompt),
+                  negative_prompt=['ugly, boring, cropped, out of frame, jpeg artifacts'] * len(prompt),
                   num_inference_steps=50,
-                  height=HEIGHT, width=WIDTH).images
-grid = image_grid(images, rows=1, cols=2)
+                  height=HEIGHT, width=WIDTH,
+                  generator=generator).images
+grid = image_grid(images, rows=2, cols=2)
 
 grid.save("remix.png")
