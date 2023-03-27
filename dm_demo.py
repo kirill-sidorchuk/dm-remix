@@ -127,6 +127,6 @@ if __name__ == "__main__":
     argparser.add_argument("-v", "--generate_video", action="store_true", default=False)
     argparser.add_argument("--num_frames", type=int, default=60)
     argparser.add_argument("--fps", type=int, default=30)
-    argparser.add_argument("--noise_level", "--noise_level", type=float, default=0.0)
+    argparser.add_argument("--noise_level", "--noise_level", type=int, default=0)
     _args = argparser.parse_args()
     main(_args)
