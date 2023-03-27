@@ -186,6 +186,8 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         # averaging over all image embeds
         image_embeds = torch.cat(all_image_embeds, dim=0).mean(dim=0)
+        del all_image_embeds
+        torch.cuda.empty_cache()
 
         # 5. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
