@@ -102,7 +102,9 @@ def main(args):
                 negative_prompt=[args.negative_prompt] * len(prompt),
                 num_inference_steps=50,
                 height=HEIGHT, width=WIDTH,
-                generator=generator).images
+                generator=generator,
+                noise_level=args.noise_level,
+            ).images
             grid = image_grid(gen_images, rows=2, cols=2)
             if args.generate_video:
                 grid.save("video_dir/remix_%03d.png" % i)
@@ -125,5 +127,6 @@ if __name__ == "__main__":
     argparser.add_argument("-v", "--generate_video", action="store_true", default=False)
     argparser.add_argument("--num_frames", type=int, default=60)
     argparser.add_argument("--fps", type=int, default=30)
+    argparser.add_argument("--noise_level", "--noise_level", type=float, default=0.0)
     _args = argparser.parse_args()
     main(_args)
