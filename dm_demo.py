@@ -8,8 +8,8 @@ from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, Stab
 
 from remix_pipe import RemixPipeline
 
-WIDTH = 512
-HEIGHT = 768
+WIDTH = 384
+HEIGHT = 512
 
 
 def image_grid(imgs, rows=2, cols=2):
