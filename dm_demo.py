@@ -53,11 +53,12 @@ image1 = image1.resize((WIDTH, HEIGHT))
 image2 = image2.resize((WIDTH, HEIGHT))
 
 # image=[image] * len(prompt), strength=0.9
-images = pipe(prompt=prompt,
-              images=[image1, image2],
-              negative_prompt=['ugly, boring'] * len(prompt),
-              num_inference_steps=50,
-              height=HEIGHT, width=WIDTH).images
+with torch.inference_mode():
+    images = pipe(prompt=prompt,
+                  images=[image1, image2],
+                  negative_prompt=['ugly, boring'] * len(prompt),
+                  num_inference_steps=50,
+                  height=HEIGHT, width=WIDTH).images
 grid = image_grid(images, rows=1, cols=2)
 
 grid.save("remix.png")
