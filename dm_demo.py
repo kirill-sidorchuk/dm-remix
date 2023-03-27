@@ -106,7 +106,7 @@ def main(args):
                 images=images,
                 image_weights=image_weights,
                 negative_prompt=[args.negative_prompt] * len(prompt),
-                num_inference_steps=50,
+                num_inference_steps=args.num_inference_steps,
                 height=HEIGHT, width=WIDTH,
                 generator=generator,
                 noise_level=args.noise_level,
@@ -135,5 +135,6 @@ if __name__ == "__main__":
     argparser.add_argument("--fps", type=int, default=30)
     argparser.add_argument("--noise_level", "--noise_level", type=int, default=0)
     argparser.add_argument("--interpolation_scale", type=float, default=1.0)
+    argparser.add_argument("--num_inference_steps", type=int, default=50)
     _args = argparser.parse_args()
     main(_args)
