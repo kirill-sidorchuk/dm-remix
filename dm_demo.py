@@ -88,12 +88,13 @@ def main(args):
     # pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
 
-    # create torch random generator
-    generator = torch.Generator().manual_seed(41)
-
     with torch.inference_mode():
         for i, image_weights in enumerate(all_image_weights):
             print(f"Generating image {i + 1}/{len(all_image_weights)}")
+
+            # create torch random generator
+            generator = torch.Generator().manual_seed(41)
+
             images = pipe(prompt=prompt,
                           images=images,
                           image_weights=image_weights,
