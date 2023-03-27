@@ -95,14 +95,15 @@ def main(args):
             # create torch random generator
             generator = torch.Generator().manual_seed(41)
 
-            images = pipe(prompt=prompt,
-                          images=images,
-                          image_weights=image_weights,
-                          negative_prompt=[args.negative_prompt] * len(prompt),
-                          num_inference_steps=50,
-                          height=HEIGHT, width=WIDTH,
-                          generator=generator).images
-            grid = image_grid(images, rows=2, cols=2)
+            gen_images = pipe(
+                prompt=prompt,
+                images=images,
+                image_weights=image_weights,
+                negative_prompt=[args.negative_prompt] * len(prompt),
+                num_inference_steps=50,
+                height=HEIGHT, width=WIDTH,
+                generator=generator).images
+            grid = image_grid(gen_images, rows=2, cols=2)
             if args.generate_video:
                 grid.save("video_dir/remix_%03d.png" % i)
             else:
@@ -119,7 +120,8 @@ if __name__ == "__main__":
     argparser.add_argument("-i", "--images", type=str, help="image file names", nargs="+", required=True)
     argparser.add_argument("-w", "--image_weights", type=float, nargs="+", default=[])
     argparser.add_argument("-n", "--num_images_in_batch", type=int, default=4)
-    argparser.add_argument("-g", "--negative_prompt", type=str, default='ugly, boring, cropped, out of frame, jpeg artifacts')
+    argparser.add_argument("-g", "--negative_prompt", type=str,
+                           default='ugly, boring, cropped, out of frame, jpeg artifacts')
     argparser.add_argument("-v", "--generate_video", action="store_true", default=False)
     argparser.add_argument("--num_frames", type=int, default=60)
     argparser.add_argument("--fps", type=int, default=30)
