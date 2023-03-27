@@ -5,6 +5,7 @@
     dm_demo.py <prompt> <num_images_in_batch> <image_weights>
 """
 import argparse
+import os
 import sys
 
 import torch
@@ -55,12 +56,27 @@ def main(args):
         image = image.resize((WIDTH, HEIGHT))
         images.append(image)
 
-    image_weights = args.image_weights
-    if len(image_weights) == 0:
-        image_weights = None
-    elif len(image_weights) != len(images):
-        print("Number of image weights must be equal to number of images")
-        return
+    if args.generate_video:
+        # generating interpolation video
+        if len(images) != 2:
+            print("Generating video requires exactly 2 images")
+            return
+
+        os.makedirs("video_dir", exist_ok=True)
+        all_image_weights = []
+        for i in range(args.num_frames):
+            w0 = i / (args.num_frames - 1)
+            w1 = 1 - w0
+            all_image_weights.append([w0, w1])
+    else:
+        # generating single image
+        image_weights = args.image_weights
+        if len(image_weights) == 0:
+            image_weights = None
+        elif len(image_weights) != len(images):
+            print("Number of image weights must be equal to number of images")
+            return
+        all_image_weights = [image_weights]
 
     # model_id = "stabilityai/stable-diffusion-2-1"
     # pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
@@ -75,18 +91,24 @@ def main(args):
     # create torch random generator
     generator = torch.Generator().manual_seed(41)
 
-    # image=[image] * len(prompt), strength=0.9
     with torch.inference_mode():
-        images = pipe(prompt=prompt,
-                      images=images,
-                      image_weights=image_weights,
-                      negative_prompt=[args.negative_prompt] * len(prompt),
-                      num_inference_steps=50,
-                      height=HEIGHT, width=WIDTH,
-                      generator=generator).images
-    grid = image_grid(images, rows=2, cols=2)
+        for i, image_weights in enumerate(all_image_weights):
+            print(f"Generating image {i + 1}/{len(all_image_weights)}")
+            images = pipe(prompt=prompt,
+                          images=images,
+                          image_weights=image_weights,
+                          negative_prompt=[args.negative_prompt] * len(prompt),
+                          num_inference_steps=50,
+                          height=HEIGHT, width=WIDTH,
+                          generator=generator).images
+            grid = image_grid(images, rows=2, cols=2)
+            if args.generate_video:
+                grid.save("video_dir/remix_%03d.png" % i)
+            else:
+                grid.save("remix.png")
 
-    grid.save("remix.png")
+    if args.generate_video:
+        os.system("ffmpeg -y -r %d -i video_dir/remix_%%03d.png -vcodec libx264 -pix_fmt yuv420p remix.mp4" % args.fps)
 
 
 if __name__ == "__main__":
@@ -97,5 +119,8 @@ if __name__ == "__main__":
     argparser.add_argument("-w", "--image_weights", type=float, nargs="+", default=[])
     argparser.add_argument("-n", "--num_images_in_batch", type=int, default=4)
     argparser.add_argument("-g", "--negative_prompt", type=str, default='ugly, boring, cropped, out of frame, jpeg artifacts')
+    argparser.add_argument("-v", "--generate_video", action="store_true", default=False)
+    argparser.add_argument("--num_frames", type=int, default=60)
+    argparser.add_argument("--fps", type=int, default=30)
     _args = argparser.parse_args()
     main(_args)
