@@ -64,7 +64,7 @@ image2 = image2.resize((WIDTH, HEIGHT))
 with torch.inference_mode():
     images = pipe(prompt=prompt,
                   images=[image1, image2],
-                  negative_prompt=['ugly, boring'] * len(prompt),
+                  negative_prompt=['ugly, boring, cropped, out of frame'] * len(prompt),
                   num_inference_steps=50,
                   height=HEIGHT, width=WIDTH).images
 grid = image_grid(images, rows=1, cols=2)
