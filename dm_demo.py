@@ -69,8 +69,9 @@ def main(args):
             os.remove(os.path.join("video_dir", f))
 
         all_image_weights = []
+        scale_offset = args.interpolation_scale / 2
         for i in range(args.num_frames):
-            w0 = i / (args.num_frames - 1)
+            w0 = args.interpolation_scale * i / (args.num_frames - 1) + scale_offset
             w1 = 1 - w0
             all_image_weights.append([w0, w1])
     else:
@@ -133,5 +134,6 @@ if __name__ == "__main__":
     argparser.add_argument("--num_frames", type=int, default=60)
     argparser.add_argument("--fps", type=int, default=30)
     argparser.add_argument("--noise_level", "--noise_level", type=int, default=0)
+    argparser.add_argument("--interpolation_scale", type=float, default=1.0)
     _args = argparser.parse_args()
     main(_args)
