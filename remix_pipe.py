@@ -25,6 +25,7 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             self,
             prompt: Union[str, List[str]] = None,
             images: List[Union[torch.FloatTensor, PIL.Image.Image]] = None,
+            image_weights: Optional[List[float]] = None,
             height: Optional[int] = None,
             width: Optional[int] = None,
             num_inference_steps: int = 20,
@@ -56,6 +57,8 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
                 the unet will be conditioned on. Note that the image is _not_ encoded by the vae and then used as the
                 latents in the denoising process such as in the standard stable diffusion text guided image variation
                 process.
+            image_weights (`List[float]`, *optional*):
+                The weight of each image in the list. If not defined, all images will have the same weight.
             height (`int`, *optional*, defaults to self.unet.config.sample_size * self.vae_scale_factor):
                 The height in pixels of the generated image.
             width (`int`, *optional*, defaults to self.unet.config.sample_size * self.vae_scale_factor):
@@ -185,7 +188,19 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             all_image_embeds.append(image_embeds.unsqueeze(0))
 
         # averaging over all image embeds
-        image_embeds = torch.cat(all_image_embeds, dim=0).mean(dim=0)
+        image_embeds = torch.cat(all_image_embeds, dim=0)
+        if image_weights is None:
+            image_weights = torch.ones((len(all_image_embeds), 1, 1), device=image_embeds.device)
+        else:
+            if isinstance(image_weights, list):
+                image_weights = torch.tensor(image_weights, device=image_embeds.device).view(-1, 1, 1)
+            elif isinstance(image_weights, torch.Tensor):
+                if image_weights.shape != (len(images),):
+                    raise RuntimeError('`image_weights` must be a list of length `len(images)`.')
+                image_weights = image_weights.view(-1, 1, 1)
+                image_weights = image_weights.to(device=image_embeds.device)
+        image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
+
         del all_image_embeds
         torch.cuda.empty_cache()
 
