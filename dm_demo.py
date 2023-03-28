@@ -70,8 +70,8 @@ def main(args):
         all_image_weights = []
         scale_offset = (1 - args.interpolation_scale) / 2
         for i in range(args.num_frames):
-            w0 = args.interpolation_scale * i / (args.num_frames - 1) + scale_offset
-            w1 = 1 - w0
+            w1 = args.interpolation_scale * i / (args.num_frames - 1) + scale_offset
+            w0 = 1 - w1
             all_image_weights.append([w0, w1])
     else:
         # generating single image
