@@ -98,7 +98,7 @@ def main(args):
             print(f"Generating image {i + 1}/{len(all_image_weights)}")
 
             # create torch random generator
-            generator = torch.Generator().manual_seed(41)
+            generator = torch.Generator().manual_seed(args.seed)
 
             gen_images = pipe(
                 prompt=prompt,
@@ -136,5 +136,6 @@ if __name__ == "__main__":
     argparser.add_argument("--noise_level", "--noise_level", type=int, default=0)
     argparser.add_argument("--interpolation_scale", type=float, default=1.0)
     argparser.add_argument("--num_inference_steps", type=int, default=50)
+    argparser.add_argument("--seed", type=int, default=41)
     _args = argparser.parse_args()
     main(_args)
