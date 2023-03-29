@@ -6,7 +6,27 @@ from PIL import Image
 from diffusers import StableUnCLIPImg2ImgPipeline, UNet2DConditionModel, AutoencoderKL, ImagePipelineOutput
 from diffusers.pipelines.stable_diffusion import StableUnCLIPImageNormalizer
 from diffusers.schedulers import KarrasDiffusionSchedulers
+from diffusers.utils import deprecate, randn_tensor
 from transformers import CLIPFeatureExtractor, CLIPVisionModelWithProjection, CLIPTokenizer, CLIPTextModel
+
+
+def slerp(val: float, low: torch.Tensor, high: torch.Tensor) -> torch.Tensor:
+    """
+    Symmetric linear interpolation between two vectors on the unit sphere. Batched version.
+    See https://en.wikipedia.org/wiki/Slerp,
+    https://discuss.pytorch.org/t/help-regarding-slerp-function-for-generative-model-sampling/32475/3
+
+    :param val: interpolation value in [0, 1]
+    :param low: the first point, not need to be normalized
+    :param high: the second point, not need to be normalized
+    :return: the interpolated point
+    """
+    low_norm = low/torch.norm(low, dim=1, keepdim=True)
+    high_norm = high/torch.norm(high, dim=1, keepdim=True)
+    omega = torch.acos((low_norm*high_norm).sum(1))
+    so = torch.sin(omega)
+    res = (torch.sin((1.0-val)*omega)/so).unsqueeze(1)*low + (torch.sin(val*omega)/so).unsqueeze(1) * high
+    return res
 
 
 class RemixPipeline(StableUnCLIPImg2ImgPipeline):
@@ -20,6 +40,62 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
                  scheduler: KarrasDiffusionSchedulers, vae: AutoencoderKL):
         super().__init__(feature_extractor, image_encoder, image_normalizer, image_noising_scheduler, tokenizer,
                          text_encoder, unet, scheduler, vae)
+
+    # def prepare_latents(self, image, timestep, batch_size, num_images_per_prompt, dtype, device, generator=None, noise=None):
+    #     if not isinstance(image, (torch.Tensor, PIL.Image.Image, list)):
+    #         raise ValueError(
+    #             f"`image` has to be of type `torch.Tensor`, `PIL.Image.Image` or list but is {type(image)}"
+    #         )
+    #
+    #     image = image.to(device=device, dtype=dtype)
+    #
+    #     batch_size = batch_size * num_images_per_prompt
+    #     if isinstance(generator, list) and len(generator) != batch_size:
+    #         raise ValueError(
+    #             f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
+    #             f" size of {batch_size}. Make sure the batch size matches the length of the generators."
+    #         )
+    #
+    #     if isinstance(generator, list):
+    #         init_latents = [
+    #             self.vae.encode(image[i: i + 1]).latent_dist.sample(generator[i]) for i in range(batch_size)
+    #         ]
+    #         init_latents = torch.cat(init_latents, dim=0)
+    #     else:
+    #         init_latents = self.vae.encode(image).latent_dist.sample(generator)
+    #
+    #     init_latents = self.vae.config.scaling_factor * init_latents
+    #
+    #     if batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] == 0:
+    #         # expand init_latents for batch_size
+    #         deprecation_message = (
+    #             f"You have passed {batch_size} text prompts (`prompt`), but only {init_latents.shape[0]} initial"
+    #             " images (`image`). Initial images are now duplicating to match the number of text prompts. Note"
+    #             " that this behavior is deprecated and will be removed in a version 1.0.0. Please make sure to update"
+    #             " your script to pass as many initial images as text prompts to suppress this warning."
+    #         )
+    #         deprecate("len(prompt) != len(image)", "1.0.0",
+    #                   deprecation_message, standard_warn=False)
+    #         additional_image_per_prompt = batch_size // init_latents.shape[0]
+    #         init_latents = torch.cat(
+    #             [init_latents] * additional_image_per_prompt, dim=0)
+    #     elif batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] != 0:
+    #         raise ValueError(
+    #             f"Cannot duplicate `image` of batch size {init_latents.shape[0]} to {batch_size} text prompts."
+    #         )
+    #     else:
+    #         init_latents = torch.cat([init_latents], dim=0)
+    #
+    #     shape = init_latents.shape
+    #     if noise is None:
+    #         noise = randn_tensor(shape, generator=generator,
+    #                              device=device, dtype=dtype)
+    #
+    #     # get latents
+    #     init_latents = self.scheduler.add_noise(init_latents, noise, timestep)
+    #     latents = init_latents
+    #
+    #     return latents
 
     def __call__(
             self,
@@ -189,16 +265,25 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         # averaging over all image embeds
         image_embeds = torch.cat(all_image_embeds, dim=0)  # [N, B, D]
-        if image_weights is None:
-            image_embeds = image_embeds.mean(dim=0)  # average over all images, [B, D]
+        if len(image_weights) == 2:
+            # using slerp instead of lerp
+            if image_weights is not None:
+                interpolation_value = image_weights[0] / (image_weights[0] + image_weights[1])
+            else:
+                interpolation_value = 0.5
+            image_embeds = slerp(interpolation_value, image_embeds[0], image_embeds[1])
         else:
-            if len(image_weights) != len(all_image_embeds):
-                raise ValueError(f"image_weights and all_image_embeds must have the same length, got {len(image_weights)} and {len(all_image_embeds)}")
+            # mixing more than two images, need to invent slerp for many images... but for now use linear interpolation
+            if image_weights is None:
+                image_embeds = image_embeds.mean(dim=0)  # average over all images, [B, D]
+            else:
+                if len(image_weights) != len(all_image_embeds):
+                    raise ValueError(f"image_weights and all_image_embeds must have the same length, got {len(image_weights)} and {len(all_image_embeds)}")
 
-            image_weights = torch.tensor(image_weights,
-                                         dtype=all_image_embeds[0].dtype,
-                                         device=all_image_embeds[0].device).view(-1, 1, 1)  # [N, 1, 1]
-            image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
+                image_weights = torch.tensor(image_weights,
+                                             dtype=all_image_embeds[0].dtype,
+                                             device=all_image_embeds[0].device).view(-1, 1, 1)  # [N, 1, 1]
+                image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
 
         del all_image_embeds
         torch.cuda.empty_cache()

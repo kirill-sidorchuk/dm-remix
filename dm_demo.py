@@ -34,6 +34,20 @@ def image_grid(imgs, rows=2, cols=2):
     return grid
 
 
+def encode_image(image, pipe):
+    device = pipe._execution_device
+    dtype = next(pipe.image_encoder.parameters()).dtype
+
+    if not isinstance(image, torch.Tensor):
+        image = pipe.feature_extractor(
+            images=image, return_tensors="pt").pixel_values
+
+    image = image.to(device=device, dtype=dtype)
+    image_embeds = pipe.image_encoder(image).image_embeds
+
+    return image_embeds
+
+
 def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
@@ -50,7 +64,7 @@ def main(args):
     # loading image with PIL
     images = []
     for image_file in args.images:
-        image = Image.open(image_file)
+        image = Image.open(image_file).convert("RGB")
         # resize image to {WIDTH, HEIGHT}
         image = image.resize((WIDTH, HEIGHT))
         images.append(image)
