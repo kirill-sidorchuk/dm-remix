@@ -19,8 +19,12 @@ def slerp(val: float, low: torch.Tensor, high: torch.Tensor) -> torch.Tensor:
     :param val: interpolation value in [0, 1]
     :param low: the first point, not need to be normalized
     :param high: the second point, not need to be normalized
+
     :return: the interpolated point
     """
+
+    assert len(low.shape) == len(high.shape) == 2
+
     low_norm = low/torch.norm(low, dim=1, keepdim=True)
     high_norm = high/torch.norm(high, dim=1, keepdim=True)
     omega = torch.acos((low_norm*high_norm).sum(1))
@@ -96,6 +100,77 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
     #     latents = init_latents
     #
     #     return latents
+
+    def _encode_image(
+        self,
+        images: List[Union[torch.Tensor, PIL.Image.Image]],
+        image_weights: List[float],
+        device,
+        batch_size,
+        num_images_per_prompt,
+        do_classifier_free_guidance,
+        noise_level,
+        generator,
+        image_embeds,
+    ):
+        dtype = next(self.image_encoder.parameters()).dtype
+
+        if isinstance(images[0], PIL.Image.Image):
+            # the image embedding should repeated so it matches the total batch size of the prompt
+            repeat_by = batch_size
+        else:
+            # assume the image input is already properly batched and just needs to be repeated so
+            # it matches the num_images_per_prompt.
+            #
+            # NOTE(will) this is probably missing a few number of side cases. I.e. batched/non-batched
+            # `image_embeds`. If those happen to be common use cases, let's think harder about
+            # what the expected dimensions of inputs should be and how we handle the encoding.
+            repeat_by = num_images_per_prompt
+
+        if not image_embeds:
+            if not isinstance(images[0], torch.Tensor):
+                images = self.feature_extractor(images=images, return_tensors="pt").pixel_values
+
+            images = images.to(device=device, dtype=dtype)
+            image_embeds = self.image_encoder(images).image_embeds
+
+        # interpolate image embeddings
+        assert len(image_embeds) == len(image_weights)
+
+        if image_embeds.shape[0] == 2:
+            # using slerp interpolation
+            intp_value = image_weights[0] / (image_weights[0] + image_weights[1])
+            image_embeds = slerp(intp_value, image_embeds[0].unsqueeze(0), image_embeds[1].unsqueeze(0))
+        elif image_embeds.shape[0] > 1:
+            # using linear interpolation
+            image_weights = torch.tensor(image_weights,
+                                         dtype=image_embeds.dtype,
+                                         device=image_embeds.device).view(-1, 1, 1)  # [N, 1, 1]
+            image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
+
+        image_embeds = self.noise_image_embeddings(
+            image_embeds=image_embeds,
+            noise_level=noise_level,
+            generator=generator,
+        )
+
+        # duplicate image embeddings for each generation per prompt, using mps friendly method
+        image_embeds = image_embeds.unsqueeze(1)
+        bs_embed, seq_len, _ = image_embeds.shape
+        image_embeds = image_embeds.repeat(1, repeat_by, 1)
+        image_embeds = image_embeds.view(bs_embed * repeat_by, seq_len, -1)
+        image_embeds = image_embeds.squeeze(1)
+
+        if do_classifier_free_guidance:
+            negative_prompt_embeds = torch.zeros_like(image_embeds)
+
+            # For classifier free guidance, we need to do two forward passes.
+            # Here we concatenate the unconditional and text embeddings into a single batch
+            # to avoid doing two forward passes
+            image_embeds = torch.cat([negative_prompt_embeds, image_embeds])
+
+        return image_embeds
+
 
     def __call__(
             self,
@@ -249,43 +324,53 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         # 4. Encoder input image
         noise_level = torch.tensor([noise_level], device=device)
-        all_image_embeds = []
-        for image in images:
-            image_embeds = self._encode_image(
-                image=image,
-                device=device,
-                batch_size=batch_size,
-                num_images_per_prompt=num_images_per_prompt,
-                do_classifier_free_guidance=do_classifier_free_guidance,
-                noise_level=noise_level,
-                generator=generator,
-                image_embeds=None,
-            )
-            all_image_embeds.append(image_embeds.unsqueeze(0))
+        if image_weights is None:
+            image_weights = [1.0] * len(images)
+        image_embeds = self._encode_image(
+            images=images,
+            image_weights=image_weights,
+            device=device,
+            batch_size=batch_size,
+            num_images_per_prompt=num_images_per_prompt,
+            do_classifier_free_guidance=do_classifier_free_guidance,
+            noise_level=noise_level,
+            generator=generator,
+            image_embeds=None,
+        )
 
-        # averaging over all image embeds
-        image_embeds = torch.cat(all_image_embeds, dim=0)  # [N, B, D]
-        if len(image_weights) == 2:
-            # using slerp instead of lerp
-            if image_weights is not None:
-                interpolation_value = image_weights[0] / (image_weights[0] + image_weights[1])
-            else:
-                interpolation_value = 0.5
-            image_embeds = slerp(interpolation_value, image_embeds[0], image_embeds[1])
-        else:
-            # mixing more than two images, need to invent slerp for many images... but for now use linear interpolation
-            if image_weights is None:
-                image_embeds = image_embeds.mean(dim=0)  # average over all images, [B, D]
-            else:
-                if len(image_weights) != len(all_image_embeds):
-                    raise ValueError(f"image_weights and all_image_embeds must have the same length, got {len(image_weights)} and {len(all_image_embeds)}")
-
-                image_weights = torch.tensor(image_weights,
-                                             dtype=all_image_embeds[0].dtype,
-                                             device=all_image_embeds[0].device).view(-1, 1, 1)  # [N, 1, 1]
-                image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
-
-        del all_image_embeds
+        # # averaging over all image embeds
+        # image_embeds = torch.cat(all_image_embeds, dim=0)  # [N, B, D]
+        # if len(image_weights) == 2:
+        #
+        #     # viewing image embeds to extract all disctinct components
+        #     if do_classifier_free_guidance:
+        #         image_embeds = image_embeds.view(len(image_weights), 2, num_images_per_prompt, 2, -1)
+        #     else:
+        #         image_embeds = image_embeds.view(len(image_weights), num_images_per_prompt, 2, -1)
+        #
+        #     # image_embeds: [N_img, Negative, Batch, Noise, D]
+        #
+        #     # using slerp instead of lerp
+        #     if image_weights is not None:
+        #         interpolation_value = image_weights[0] / (image_weights[0] + image_weights[1])
+        #     else:
+        #         interpolation_value = 0.5
+        #     image_embeds = slerp(interpolation_value, image_embeds[0], image_embeds[1], dim=-1)
+        #     image_embeds = image_embeds.view(-1, image_embeds.shape[-1])
+        # else:
+        #     # mixing more than two images, need to invent slerp for many images... but for now use linear interpolation
+        #     if image_weights is None:
+        #         image_embeds = image_embeds.mean(dim=0)  # average over all images, [B, D]
+        #     else:
+        #         if len(image_weights) != len(all_image_embeds):
+        #             raise ValueError(f"image_weights and all_image_embeds must have the same length, got {len(image_weights)} and {len(all_image_embeds)}")
+        #
+        #         image_weights = torch.tensor(image_weights,
+        #                                      dtype=all_image_embeds[0].dtype,
+        #                                      device=all_image_embeds[0].device).view(-1, 1, 1)  # [N, 1, 1]
+        #         image_embeds = torch.sum(image_embeds * image_weights, dim=0) / torch.sum(image_weights, dim=0)
+        #
+        # del all_image_embeds
         torch.cuda.empty_cache()
 
         # 5. Prepare timesteps
