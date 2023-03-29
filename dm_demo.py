@@ -104,7 +104,7 @@ def main(args):
                                          variation=variation_dtype)
 
     # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
-    # pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
 
     with torch.inference_mode():
