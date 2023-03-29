@@ -125,8 +125,8 @@ def main(args):
 if __name__ == "__main__":
     # parsing command line args
     argparser = argparse.ArgumentParser()
+    argparser.add_argument("images", type=str, help="image file names", nargs="+")
     argparser.add_argument("-p", "--prompt", type=str, default="")
-    argparser.add_argument("images", type=str, help="image file names", nargs="+", required=True)
     argparser.add_argument("-w", "--image_weights", type=float, nargs="+", default=[1, 1])
     argparser.add_argument("-n", "--num_images_in_batch", type=int, default=4)
     argparser.add_argument("-g", "--negative_prompt", type=str,
