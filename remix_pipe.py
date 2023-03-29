@@ -1,12 +1,14 @@
 from typing import List, Union, Optional, Callable, Dict, Any
 
 import PIL
+import numpy as np
 import torch
 from PIL import Image
-from diffusers import StableUnCLIPImg2ImgPipeline, UNet2DConditionModel, AutoencoderKL, ImagePipelineOutput
+from diffusers import StableUnCLIPImg2ImgPipeline, UNet2DConditionModel, AutoencoderKL, ImagePipelineOutput, \
+    StableDiffusionImg2ImgPipeline
 from diffusers.pipelines.stable_diffusion import StableUnCLIPImageNormalizer
 from diffusers.schedulers import KarrasDiffusionSchedulers
-from diffusers.utils import deprecate, randn_tensor
+from diffusers.utils import deprecate, randn_tensor, PIL_INTERPOLATION
 from transformers import CLIPFeatureExtractor, CLIPVisionModelWithProjection, CLIPTokenizer, CLIPTextModel
 
 
@@ -201,6 +203,33 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         return image_embeds
 
+    @staticmethod
+    def _preprocess_image(image: PIL.Image.Image) -> torch.Tensor:
+        """
+        Taken from StableDiffusionImg2ImgPipeline
+        :param image: PIL image
+        :return: torch tensor
+        """
+
+        if isinstance(image, torch.Tensor):
+            return image
+        elif isinstance(image, PIL.Image.Image):
+            image = [image]
+
+        if isinstance(image[0], PIL.Image.Image):
+            w, h = image[0].size
+            w, h = map(lambda x: x - x % 8, (w, h))  # resize to integer multiple of 8
+
+            image = [np.array(i.resize((w, h), resample=PIL_INTERPOLATION["lanczos"]))[None, :] for i in image]
+            image = np.concatenate(image, axis=0)
+            image = np.array(image).astype(np.float32) / 255.0
+            image = image.transpose(0, 3, 1, 2)
+            image = 2.0 * image - 1.0
+            image = torch.from_numpy(image)
+        elif isinstance(image[0], torch.Tensor):
+            image = torch.cat(image, dim=0)
+        return image
+
     def __call__(
             self,
             prompt: Union[str, List[str]] = None,
@@ -380,21 +409,18 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             # using content image to get starting latents
             # diffusing encoded content image
             latent_timestep = timesteps[timestemp:timestemp +
-                                                  1].repeat(batch_size * num_images_per_prompt)
+                                                  1].repeat(num_images_per_prompt)
 
-            content_image = self.feature_extractor(images=images[0], return_tensors="pt").pixel_values
+            content_image = self._preprocess_image(images[0])
+            # [1, 3, 512, 512]
 
             # duplicate content_image for each generation per prompt, using mps friendly method
-            content_image = content_image.unsqueeze(1)
-            bs_embed, seq_len, _ = content_image.shape
-            content_image = content_image.repeat(1, num_images_per_prompt, 1)
-            content_image = content_image.view(bs_embed * num_images_per_prompt, seq_len, -1)
-            content_image = content_image.squeeze(1)
+            content_image = content_image.expand(num_images_per_prompt, -1, -1, -1).contiguous()
 
             latents = self.prepare_latents_from_image(
                 image=content_image,
                 timestep=latent_timestep,
-                batch_size=batch_size,
+                batch_size=1,
                 dtype=prompt_embeds.dtype,
                 num_images_per_prompt=num_images_per_prompt,
                 device=device,
