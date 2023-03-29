@@ -253,7 +253,7 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             cross_attention_kwargs: Optional[Dict[str, Any]] = None,
             noise_level: int = 0,
             image_embeds: Optional[torch.FloatTensor] = None,
-            timestemp: int = 0,
+            timestep: int = 0,
             start_from_content_latents: bool = False
     ):
         r"""
@@ -408,8 +408,7 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
         if start_from_content_latents:
             # using content image to get starting latents
             # diffusing encoded content image
-            latent_timestep = timesteps[timestemp:timestemp +
-                                                  1].repeat(num_images_per_prompt)
+            latent_timestep = timesteps[timestep:timestep + 1].repeat(num_images_per_prompt)
 
             content_image = self._preprocess_image(images[0])
             # [1, 3, 512, 512]

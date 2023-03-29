@@ -124,6 +124,7 @@ def main(args):
                 height=HEIGHT, width=WIDTH,
                 generator=generator,
                 noise_level=args.noise_level,
+                timestep=args.timestep,
                 start_from_content_latents=args.start_from_content_latents,
             ).images
 
@@ -154,5 +155,6 @@ if __name__ == "__main__":
     argparser.add_argument("--num_inference_steps", type=int, default=50)
     argparser.add_argument("--seed", type=int, default=41)
     argparser.add_argument("-l", "--start_from_content_latents", action="store_true", default=False)
+    argparser.add_argument("--timestep", type=int, default=0, help="timestep for start when -l is used")
     _args = argparser.parse_args()
     main(_args)
