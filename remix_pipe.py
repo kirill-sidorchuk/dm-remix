@@ -158,8 +158,8 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         if image_embeds.shape[0] == 2:
             # using slerp interpolation
-            intp_value = image_weights[1] / (image_weights[0] + image_weights[1])
-            image_embeds = slerp(intp_value, image_embeds[1].unsqueeze(0), image_embeds[0].unsqueeze(0))
+            intp_value = image_weights[0] / (image_weights[0] + image_weights[1])
+            image_embeds = slerp(intp_value, image_embeds[0].unsqueeze(0), image_embeds[1].unsqueeze(0))
         elif image_embeds.shape[0] > 1:
             # using linear interpolation
             image_weights = torch.tensor(image_weights,
