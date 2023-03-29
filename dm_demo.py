@@ -6,12 +6,10 @@
 """
 import argparse
 import os
-import sys
 
 import torch
 from PIL import Image
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, \
-    StableUnCLIPImg2ImgPipeline
+from diffusers import DPMSolverMultistepScheduler
 
 from remix_pipe import RemixPipeline
 
@@ -32,20 +30,6 @@ def image_grid(imgs, rows=2, cols=2):
     for i, img in enumerate(imgs):
         grid.paste(img, box=(i % cols * w, i // cols * h))
     return grid
-
-
-def encode_image(image, pipe):
-    device = pipe._execution_device
-    dtype = next(pipe.image_encoder.parameters()).dtype
-
-    if not isinstance(image, torch.Tensor):
-        image = pipe.feature_extractor(
-            images=image, return_tensors="pt").pixel_values
-
-    image = image.to(device=device, dtype=dtype)
-    image_embeds = pipe.image_encoder(image).image_embeds
-
-    return image_embeds
 
 
 def main(args):

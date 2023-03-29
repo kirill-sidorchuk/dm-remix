@@ -35,19 +35,6 @@ def slerp(val: float, low: torch.Tensor, high: torch.Tensor) -> torch.Tensor:
     return res
 
 
-def center_resize_crop(image, size=224):
-    w, h = image.size
-    if h < w:
-        h, w = size, size * w // h
-    else:
-        h, w = size * h // w, size
-
-    image = image.resize((w, h))
-
-    box = ((w - size) // 2, (h - size) // 2, (w + size) // 2, (h + size) // 2)
-    return image.crop(box)
-
-
 class RemixPipeline(StableUnCLIPImg2ImgPipeline):
     """
     Image remixing pipeline using the StableUnCLIPImg2ImgPipeline as a base. This pipeline is used to remix images
