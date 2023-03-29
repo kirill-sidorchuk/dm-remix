@@ -101,8 +101,7 @@ def main(args):
     # pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
     pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
                                          torch_dtype=sd_dtype,
-                                         variation=variation_dtype,
-                                         start_from_content_latents=args.start_from_content_latents)
+                                         variation=variation_dtype)
 
     # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
