@@ -33,73 +33,103 @@ def slerp(val: float, low: torch.Tensor, high: torch.Tensor) -> torch.Tensor:
     return res
 
 
+def center_resize_crop(image, size=224):
+    w, h = image.size
+    if h < w:
+        h, w = size, size * w // h
+    else:
+        h, w = size * h // w, size
+
+    image = image.resize((w, h))
+
+    box = ((w - size) // 2, (h - size) // 2, (w + size) // 2, (h + size) // 2)
+    return image.crop(box)
+
+
 class RemixPipeline(StableUnCLIPImg2ImgPipeline):
     """
     Image remixing pipeline using the StableUnCLIPImg2ImgPipeline as a base. This pipeline is used to remix images
     """
 
-    def __init__(self, feature_extractor: CLIPFeatureExtractor, image_encoder: CLIPVisionModelWithProjection,
-                 image_normalizer: StableUnCLIPImageNormalizer, image_noising_scheduler: KarrasDiffusionSchedulers,
-                 tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel, unet: UNet2DConditionModel,
-                 scheduler: KarrasDiffusionSchedulers, vae: AutoencoderKL):
+    def __init__(
+            self,
+            feature_extractor: CLIPFeatureExtractor,
+            image_encoder: CLIPVisionModelWithProjection,
+            image_normalizer: StableUnCLIPImageNormalizer,
+            image_noising_scheduler: KarrasDiffusionSchedulers,
+            tokenizer: CLIPTokenizer,
+            text_encoder: CLIPTextModel,
+            unet: UNet2DConditionModel,
+            scheduler: KarrasDiffusionSchedulers,
+            vae: AutoencoderKL,
+    ):
         super().__init__(feature_extractor, image_encoder, image_normalizer, image_noising_scheduler, tokenizer,
                          text_encoder, unet, scheduler, vae)
 
-    # def prepare_latents(self, image, timestep, batch_size, num_images_per_prompt, dtype, device, generator=None, noise=None):
-    #     if not isinstance(image, (torch.Tensor, PIL.Image.Image, list)):
-    #         raise ValueError(
-    #             f"`image` has to be of type `torch.Tensor`, `PIL.Image.Image` or list but is {type(image)}"
-    #         )
-    #
-    #     image = image.to(device=device, dtype=dtype)
-    #
-    #     batch_size = batch_size * num_images_per_prompt
-    #     if isinstance(generator, list) and len(generator) != batch_size:
-    #         raise ValueError(
-    #             f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
-    #             f" size of {batch_size}. Make sure the batch size matches the length of the generators."
-    #         )
-    #
-    #     if isinstance(generator, list):
-    #         init_latents = [
-    #             self.vae.encode(image[i: i + 1]).latent_dist.sample(generator[i]) for i in range(batch_size)
-    #         ]
-    #         init_latents = torch.cat(init_latents, dim=0)
-    #     else:
-    #         init_latents = self.vae.encode(image).latent_dist.sample(generator)
-    #
-    #     init_latents = self.vae.config.scaling_factor * init_latents
-    #
-    #     if batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] == 0:
-    #         # expand init_latents for batch_size
-    #         deprecation_message = (
-    #             f"You have passed {batch_size} text prompts (`prompt`), but only {init_latents.shape[0]} initial"
-    #             " images (`image`). Initial images are now duplicating to match the number of text prompts. Note"
-    #             " that this behavior is deprecated and will be removed in a version 1.0.0. Please make sure to update"
-    #             " your script to pass as many initial images as text prompts to suppress this warning."
-    #         )
-    #         deprecate("len(prompt) != len(image)", "1.0.0",
-    #                   deprecation_message, standard_warn=False)
-    #         additional_image_per_prompt = batch_size // init_latents.shape[0]
-    #         init_latents = torch.cat(
-    #             [init_latents] * additional_image_per_prompt, dim=0)
-    #     elif batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] != 0:
-    #         raise ValueError(
-    #             f"Cannot duplicate `image` of batch size {init_latents.shape[0]} to {batch_size} text prompts."
-    #         )
-    #     else:
-    #         init_latents = torch.cat([init_latents], dim=0)
-    #
-    #     shape = init_latents.shape
-    #     if noise is None:
-    #         noise = randn_tensor(shape, generator=generator,
-    #                              device=device, dtype=dtype)
-    #
-    #     # get latents
-    #     init_latents = self.scheduler.add_noise(init_latents, noise, timestep)
-    #     latents = init_latents
-    #
-    #     return latents
+    def prepare_latents_from_image(
+            self,
+            image,
+            timestep,
+            batch_size,
+            num_images_per_prompt,
+            dtype,
+            device,
+            generator=None,
+            noise=None):
+        if not isinstance(image, (torch.Tensor, PIL.Image.Image, list)):
+            raise ValueError(
+                f"`image` has to be of type `torch.Tensor`, `PIL.Image.Image` or list but is {type(image)}"
+            )
+
+        image = image.to(device=device, dtype=dtype)
+
+        batch_size = batch_size * num_images_per_prompt
+        if isinstance(generator, list) and len(generator) != batch_size:
+            raise ValueError(
+                f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
+                f" size of {batch_size}. Make sure the batch size matches the length of the generators."
+            )
+
+        if isinstance(generator, list):
+            init_latents = [
+                self.vae.encode(image[i: i + 1]).latent_dist.sample(generator[i]) for i in range(batch_size)
+            ]
+            init_latents = torch.cat(init_latents, dim=0)
+        else:
+            init_latents = self.vae.encode(image).latent_dist.sample(generator)
+
+        init_latents = self.vae.config.scaling_factor * init_latents
+
+        if batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] == 0:
+            # expand init_latents for batch_size
+            deprecation_message = (
+                f"You have passed {batch_size} text prompts (`prompt`), but only {init_latents.shape[0]} initial"
+                " images (`image`). Initial images are now duplicating to match the number of text prompts. Note"
+                " that this behavior is deprecated and will be removed in a version 1.0.0. Please make sure to update"
+                " your script to pass as many initial images as text prompts to suppress this warning."
+            )
+            deprecate("len(prompt) != len(image)", "1.0.0",
+                      deprecation_message, standard_warn=False)
+            additional_image_per_prompt = batch_size // init_latents.shape[0]
+            init_latents = torch.cat(
+                [init_latents] * additional_image_per_prompt, dim=0)
+        elif batch_size > init_latents.shape[0] and batch_size % init_latents.shape[0] != 0:
+            raise ValueError(
+                f"Cannot duplicate `image` of batch size {init_latents.shape[0]} to {batch_size} text prompts."
+            )
+        else:
+            init_latents = torch.cat([init_latents], dim=0)
+
+        shape = init_latents.shape
+        if noise is None:
+            noise = randn_tensor(shape, generator=generator,
+                                 device=device, dtype=dtype)
+
+        # get latents
+        init_latents = self.scheduler.add_noise(init_latents, noise, timestep)
+        latents = init_latents
+
+        return latents
 
     def _encode_image(
         self,
@@ -171,7 +201,6 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
 
         return image_embeds
 
-
     def __call__(
             self,
             prompt: Union[str, List[str]] = None,
@@ -195,6 +224,8 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
             cross_attention_kwargs: Optional[Dict[str, Any]] = None,
             noise_level: int = 0,
             image_embeds: Optional[torch.FloatTensor] = None,
+            timestemp: int = 0,
+            start_from_content_latents: bool = False
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -345,17 +376,46 @@ class RemixPipeline(StableUnCLIPImg2ImgPipeline):
         timesteps = self.scheduler.timesteps
 
         # 6. Prepare latent variables
-        num_channels_latents = self.unet.in_channels
-        latents = self.prepare_latents(
-            batch_size=batch_size,
-            num_channels_latents=num_channels_latents,
-            height=height,
-            width=width,
-            dtype=prompt_embeds.dtype,
-            device=device,
-            generator=generator,
-            latents=latents,
-        )
+        if start_from_content_latents:
+            # using content image to get starting latents
+            # diffusing encoded content image
+            latent_timestep = timesteps[timestemp:timestemp +
+                                                  1].repeat(batch_size * num_images_per_prompt)
+
+            content_image = self.feature_extractor(images=images[0], return_tensors="pt").pixel_values
+
+            # duplicate content_image for each generation per prompt, using mps friendly method
+            content_image = content_image.unsqueeze(1)
+            bs_embed, seq_len, _ = content_image.shape
+            content_image = content_image.repeat(1, num_images_per_prompt, 1)
+            content_image = content_image.view(bs_embed * num_images_per_prompt, seq_len, -1)
+            content_image = content_image.squeeze(1)
+
+            latents = self.prepare_latents_from_image(
+                image=content_image,
+                timestep=latent_timestep,
+                batch_size=batch_size,
+                dtype=prompt_embeds.dtype,
+                num_images_per_prompt=num_images_per_prompt,
+                device=device,
+                generator=generator,
+                noise=latents
+            )
+
+        else:
+            # using random latents
+            num_channels_latents = self.unet.in_channels
+            latents = self.prepare_latents(
+                batch_size=batch_size,
+                num_channels_latents=num_channels_latents,
+                height=height,
+                width=width,
+                dtype=prompt_embeds.dtype,
+                device=device,
+                generator=generator,
+                latents=latents,
+            )
+            # latents: [batch_size, num_channels_latents, height, width]
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)

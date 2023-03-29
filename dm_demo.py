@@ -101,7 +101,8 @@ def main(args):
     # pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=sd_dtype)
     pipe = RemixPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip",
                                          torch_dtype=sd_dtype,
-                                         variation=variation_dtype)
+                                         variation=variation_dtype,
+                                         start_from_content_latents=args.start_from_content_latents)
 
     # Use the DPMSolverMultistepScheduler (DPM-Solver++) scheduler here instead
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
@@ -124,7 +125,9 @@ def main(args):
                 height=HEIGHT, width=WIDTH,
                 generator=generator,
                 noise_level=args.noise_level,
+                start_from_content_latents=args.start_from_content_latents,
             ).images
+
             grid = image_grid(gen_images, rows=2, cols=2)
             if args.generate_video:
                 grid.save("video_dir/remix_%03d.png" % i)
@@ -151,5 +154,6 @@ if __name__ == "__main__":
     argparser.add_argument("--interpolation_scale", type=float, default=1.0)
     argparser.add_argument("--num_inference_steps", type=int, default=50)
     argparser.add_argument("--seed", type=int, default=41)
+    argparser.add_argument("-l", "--start_from_content_latents", action="store_true", default=False)
     _args = argparser.parse_args()
     main(_args)
