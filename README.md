@@ -1,6 +1,7 @@
 # Stable Diffusion Remix Demo
 
 ## Installation
+Uses pytorch and HuggingFace diffusers.
 ```
 pip install -r requirements.txt
 ```
